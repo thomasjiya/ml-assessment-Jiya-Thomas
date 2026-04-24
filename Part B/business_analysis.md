@@ -69,5 +69,79 @@ This can be extended further to **store-level models** if sufficient historical 
 A stratified approach captures these distinct response curves without requiring a fully separate model per store. It balances **model specificity** (learning local patterns) against **data sufficiency** (each group still has
 enough training records for a reliable model).
 
-If data per store is rich enough, a **mixed-effects model** or
-**store-level embeddings** inside a neural network could be considered as a more sophisticated alternative that captures both shared global patterns and individual store-level deviations simultaneously.
+If data per store is rich enough, a **mixed-effects model** or **store-level embeddings** inside a neural network could be considered as a more sophisticated alternative that captures both shared global patterns and individual store-level deviations simultaneously.
+
+-------------------------------------------------------------------------------------------------------------------
+## B2. Data and EDA Strategy
+
+### (a) Joining the Four Tables
+
+**Table descriptions and join keys:**
+
+The four tables would be joined as follows:
+
+- `transactions` is the **base table** — it contains one row per transaction with a `store_id` and `transaction_date`.
+- Join `store_attributes` onto transactions using `store_id` as the key. This brings in `store_size`, `location_type`, and `competition_density` for each transaction.
+- Join `promotion_details` using `store_id` and `month` (or a date range key) as the composite key — since each store runs one promotion per month, this attaches the `promotion_type` active at that store in that period.
+- Join `calendar` using `transaction_date` as the key. This brings in `is_weekend` and `is_festival` flags for each date.
+
+All joins are **left joins** from the transactions table outward, preserving all transaction records even if a store had no promotion that month (which would be encoded as a "no promotion" category rather than a null).
+
+**Grain of the final dataset:**
+One row = one store × one month combination.
+
+Before modelling, transactions are **aggregated to store-month level**:
+- `items_sold` → sum of all items sold at that store in that month (target)
+- `is_weekend` → proportion of days in that month that were weekends
+- `is_festival` → binary flag (1 if any festival occurred that month)
+- All store attributes remain constant per store (no aggregation needed)
+- `promotion_type` → the single promotion active that month per store
+
+This grain makes sense because promotions are decided and evaluated at the monthly store level, which is also the level at which the business makes deployment decisions.
+
+### (b) Exploratory Data Analysis (EDA)
+
+Before modelling, I would perform the following analyses:
+
+1.  Promotion-wise Sales Comparison (Boxplot/Bar Chart)
+    - Compare average items sold across different promotion types. 
+    - Insight: Identify which promotions generally perform better.
+    - Impact: Helps in feature importance expectations and baseline strategy.
+2. Time Series Analysis (Line Chart)
+    - Plot daily/weekly sales trends across stores.
+    - Insight: Detect seasonality, trends, and spikes during festivals/weekends.
+    - Impact: Encourages inclusion of time-based features (month, lag variables).
+3. Store Segmentation Analysis (Grouped Bar Chart)
+    - Compare performance across store types (urban vs rural, high vs low competition).
+    - Insight: Promotions may perform differently depending on store characteristics.
+    - Impact: Suggests interaction features (e.g., promotion × store type).
+4. Correlation Heatmap
+    - Analyze relationships between numerical variables (footfall, store size, sales).
+    - Insight: Identify strong predictors and multicollinearity.
+    - Impact: Guides feature selection and model choice.
+5. Distribution of Target Variable (Histogram)
+    - Examine skewness and outliers in items sold.
+    - Insight: Sales may be highly skewed.
+    - Impact: May require log transformation or robust models.
+6. Promotion Effect by Day Type (Weekend vs Weekday)
+    - Compare sales uplift during weekends vs weekdays for each promotion.
+    - Insight: Some promotions may work better on weekends.
+    - Impact: Adds interaction features (promotion × weekend).
+
+### (c) Handling Promotion Imbalance
+
+Since 80% of transactions occur without promotions, the dataset is highly imbalanced. This can lead to:
+
+- The model being biased toward predicting no-promotion scenarios
+- Underestimating the true impact of promotions
+- Poor learning of promotion-specific effects
+
+Steps to address this:
+
+- Resampling techniques: Oversample promotion data or undersample non-promotion data
+- Stratified sampling: Ensure balanced representation during training
+- Feature engineering: Include a binary “promotion applied” feature and interaction terms
+- Use appropriate evaluation metrics: Such as uplift or segmented performance instead of overall accuracy
+- Model choice: Use models that handle imbalance well (e.g., tree-based models).
+
+-----------------------------------------------------------------
