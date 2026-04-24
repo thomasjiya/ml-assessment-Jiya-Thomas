@@ -212,10 +212,8 @@ The model recommends different promotions for the same store in December vs Marc
 - Save the trained model using formats like: pickle / joblib (Python)
 - Store along with: Feature transformation pipeline / Model version and training metadata
 
-2. Monthly Data Preparation
-At the start of each month:
-
-Collect latest data:
+2. Monthly Data Preparation-
+At the start of each month collect latest data:
 - Store attributes (if updated) like recent sales history/calendar features (festivals, weekends). 
 - Apply the same feature engineering pipeline used during training. 
 - Generate input dataset at store–month level
@@ -226,13 +224,9 @@ Collect latest data:
 - Model outputs predicted sales for each promotion type
 - Select the promotion with maximum predicted sales for each store
 
-4. Deployment Pipeline
+4. Deployment Pipeline- Automate using a workflow tool (e.g., scheduled batch job)
 
-- Automate using a workflow tool (e.g., scheduled batch job)
-
-5. Monitoring and Retraining
-
-To detect performance degradation:
+5. Monitoring and Retraining- To detect performance degradation:
 
 - Prediction vs Actual Tracking
 - Data Drift Monitoring
