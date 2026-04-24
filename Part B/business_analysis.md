@@ -99,6 +99,7 @@ Before modelling, transactions are **aggregated to store-month level**:
 
 This grain makes sense because promotions are decided and evaluated at the monthly store level, which is also the level at which the business makes deployment decisions.
 
+---
 ### (b) Exploratory Data Analysis (EDA)
 
 Before modelling, I would perform the following analyses:
@@ -127,7 +128,7 @@ Before modelling, I would perform the following analyses:
     - Compare sales uplift during weekends vs weekdays for each promotion.
     - Insight: Some promotions may work better on weekends.
     - Impact: Adds interaction features (promotion × weekend).
-
+---
 ### (c) Handling Promotion Imbalance
 
 Since 80% of transactions occur without promotions, the dataset is highly imbalanced. This can lead to:
@@ -145,3 +146,103 @@ Steps to address this:
 - Model choice: Use models that handle imbalance well (e.g., tree-based models).
 
 -----------------------------------------------------------------
+## B3. Model Evaluation and Deployment
+### (a) Train-Test Split and Evaluation Metrics
+
+Since the data is time-series (monthly data over three years), I would use a time-based split rather than a random split.
+
+Train-test split approach:
+
+- Train on the first 2–2.5 years
+- Validate on a subsequent period (e.g., next 3–6 months)
+- Test on the final few months
+- Optionally use rolling/forward validation (walk-forward validation) to ensure robustness across time
+
+**Why random split is inappropriate:** It would mix past and future data, causing data leakage. The model could learn patterns from the future, leading to over-optimistic performance.
+It ignores temporal dependencies like seasonality and trends.
+
+**Evaluation metrics:**
+
+1. RMSE (Root Mean Squared Error)
+    - Measures prediction error magnitude
+    - Penalizes large errors more heavily
+    - Interpretation: Useful to ensure the model avoids large forecasting mistakes in sales
+2. MAE (Mean Absolute Error)
+    - Measures average absolute error
+    - More interpretable than RMSE
+    - Interpretation: “On average, the model is off by X items sold per store per month”
+3. R² (Coefficient of Determination)
+    - Measures how much variance in sales is explained by the model
+    - Interpretation: Higher R² indicates better explanatory power
+4. Business Metric: Incremental Lift / Uplift
+    - Measures how much additional sales a promotion generates vs no promotion
+    - Interpretation: Most important metric for decision-making, as the goal is to maximize sales impact of promotions
+---
+### (b) Explaining Different Recommendations Using Feature Importance
+
+The model recommends different promotions for the same store in December vs March due to changing feature values across time.
+
+**How to investigate:**
+
+1. Global Feature Importance
+    - Identify key drivers (e.g., festival flag, seasonality, footfall, past sales, promotion type interactions)
+2. Local Explanation (per prediction)
+    - Use methods like SHAP values to explain why a specific prediction was made for:
+        - Store 12 in December
+        - Store 12 in March
+3. Compare feature values across months
+    - December may have: 
+        - Festival/holiday season → higher demand, Higher footfall.
+        - Customers more responsive to Loyalty Points Bonus
+    - March may have:
+        - Lower seasonal demand
+        - Need for stronger incentives → Flat Discount performs better
+
+**How to communicate to marketing team:**
+
+1. In December, festive demand and high customer engagement make loyalty rewards more effective.
+2. In March, demand is lower, so direct price reductions (discounts) drive higher conversions.”
+3. Use simple visuals (bar charts of feature contributions) to make explanations intuitive
+
+---
+### (c) Deployment and Monitoring Strategy
+
+1. Model Saving
+
+- Save the trained model using formats like: pickle / joblib (Python)
+- Store along with: Feature transformation pipeline / Model version and training metadata
+
+2. Monthly Data Preparation
+At the start of each month:
+
+Collect latest data:
+- Store attributes (if updated) like recent sales history/calendar features (festivals, weekends). 
+- Apply the same feature engineering pipeline used during training. 
+- Generate input dataset at store–month level
+
+3. Generating Recommendations
+
+- Feed the prepared data into the saved model
+- Model outputs predicted sales for each promotion type
+- Select the promotion with maximum predicted sales for each store
+
+4. Deployment Pipeline
+
+- Automate using a workflow tool (e.g., scheduled batch job)
+
+5. Monitoring and Retraining
+
+To detect performance degradation:
+
+- Prediction vs Actual Tracking
+- Data Drift Monitoring
+- Concept Drift
+- Business KPI Tracking
+
+**Retraining triggers:**
+
+- Significant drop in model performance
+- Major change in customer behavior or market conditions
+- Periodic retraining (e.g., every 6 months)
+
+---
